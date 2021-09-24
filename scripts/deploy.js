@@ -1,17 +1,20 @@
 require('dotenv').config()
 
 async function deploy() {
+  const signers = await ethers.getSigners()
+  const addresses = signers.map(s => s.address)
+
   const Pool = await ethers.getContractFactory("Pool");
   const OperatorManagerMock = await ethers.getContractFactory("OperatorManagerMock");
   const TransferVerifier = await ethers.getContractFactory(
     process.env.MOCK_TX_VERIFIER === "false" ?
-    "TransferVerifier" :
-    "TransferVerifierMock"
+      "TransferVerifier" :
+      "TransferVerifierMock"
   );
   const TreeVerifier = await ethers.getContractFactory(
     process.env.MOCK_TREE_VERIFIER === "false" ?
-    "TreeVerifier" :
-    "TreeVerifierMock"
+      "TreeVerifier" :
+      "TreeVerifierMock"
   );
   const Token = await ethers.getContractFactory("ERC20Mock");
 
@@ -20,18 +23,27 @@ async function deploy() {
   const treeVerifier = await TreeVerifier.deploy();
   const testToken = await Token.deploy("Test Token", "TEST1");
   const voucherToken = await Token.deploy("Voucher Token", "TEST2");
-  
+
   await operatorManagerMock.deployed();
   await transferVerifier.deployed();
   await treeVerifier.deployed();
   await testToken.deployed();
   await voucherToken.deployed();
 
+  const tokenDenominator = "1000000000"
+  const energyDenominator = "1000000000"
+  const nativeDenominator = "1000000000"
+
   const initialRoot = "11469701942666298368112882412133877458305516134926649826543144744382391691533"
-  const pool = await Pool.deploy(testToken.address, voucherToken.address, "1000000000", "1000000000", "1000000000", 
-      transferVerifier.address, treeVerifier.address, operatorManagerMock.address, initialRoot);
+  const pool = await Pool.deploy(testToken.address, voucherToken.address, tokenDenominator, energyDenominator, nativeDenominator,
+    transferVerifier.address, treeVerifier.address, operatorManagerMock.address, initialRoot);
 
   await pool.deployed();
+
+  for (const address of addresses) {
+    // Give 10 tokens
+    await testToken.mint(address, "10000000000")
+  }
 
   return {
     pool,
